@@ -21,3 +21,5 @@ torchaudio==2.10.0+cu130
 torchcodec==0.10.0+cu130
 torchvision==0.25.0+cu130
 wadler_lindig==0.1.7
+tensorflow
+keras
