@@ -8,57 +8,53 @@ from tqdm import tqdm
 # =========================
 # CONFIG
 # =========================
-INPUT_DIR = "datasets"      # root folder of wav files
-OUTPUT_DIR = "dataset_mel_img"   # root folder for mel spectrograms
+INPUT_DIR = "datasets"
+OUTPUT_DIR = "dataset_stft_img"
 
-SR = 16000          # sampling rate
-N_MELS = 128        # number of mel bands
+SR = 16000
 N_FFT = 2048
 HOP_LENGTH = 512
 
 IMG_SIZE = 300   # pixels
 DPI = 100        # 3 inches * 100 dpi = 300 px
+
 # =========================
-# FUNCTION: process one file
+# FUNCTION
 # =========================
-def wav_to_mel(input_path, output_path):
+def wav_to_stft(input_path, output_path):
     try:
         y, sr = librosa.load(input_path, sr=SR)
 
-        # Generate mel spectrogram
-        mel = librosa.feature.melspectrogram(
-            y=y,
+        stft = librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH)
+        stft_db = librosa.amplitude_to_db(np.abs(stft), ref=np.max)
+
+        fig = plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
+        ax = plt.axes([0, 0, 1, 1])  # remove margins completely
+
+        librosa.display.specshow(
+            stft_db,
             sr=sr,
-            n_fft=N_FFT,
             hop_length=HOP_LENGTH,
-            n_mels=N_MELS
+            x_axis=None,
+            y_axis=None
         )
 
-        # Convert to log scale (dB)
-        mel_db = librosa.power_to_db(mel, ref=np.max)
-
-        # Save as image
-        fig = plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
-        ax = plt.axes([0, 0, 1, 1])
-        librosa.display.specshow(mel_db, sr=sr, hop_length=HOP_LENGTH, x_axis='time', y_axis='mel')
-        plt.axis('off')
-        # plt.tight_layout(pad=0)
+        ax.set_axis_off()
 
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
-        plt.close()
+        plt.savefig(output_path, dpi=DPI)
+        plt.close(fig)
 
     except Exception as e:
         print(f"Error processing {input_path}: {e}")
 
 
 # =========================
-# MAIN LOOP
+# MAIN
 # =========================
 def process_dataset(input_dir, output_dir):
     wav_files = []
 
-    # Collect all wav files
     for root, _, files in os.walk(input_dir):
         for file in files:
             if file.lower().endswith(".wav"):
@@ -67,18 +63,12 @@ def process_dataset(input_dir, output_dir):
     print(f"Found {len(wav_files)} wav files.")
 
     for wav_path in tqdm(wav_files):
-        # Create mirrored output path
         relative_path = os.path.relpath(wav_path, input_dir)
         output_path = os.path.join(output_dir, relative_path)
-
-        # Change extension to .png
         output_path = os.path.splitext(output_path)[0] + ".png"
 
-        wav_to_mel(wav_path, output_path)
+        wav_to_stft(wav_path, output_path)
 
 
-# =========================
-# ENTRY POINT
-# =========================
 if __name__ == "__main__":
     process_dataset(INPUT_DIR, OUTPUT_DIR)
