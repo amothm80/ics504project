@@ -4,6 +4,8 @@ import numpy as np
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
+from PIL import Image
+
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
@@ -92,7 +94,7 @@ def augment(y, sr):
     augmented.append(time_shift(y))
 
     # noise
-    # augmented.append(add_noise(y))
+    augmented.append(add_noise(y))
 
     return augmented
 
@@ -103,18 +105,35 @@ def save_stft(y, sr, out_path):
     # S = librosa.feature.melspectrogram(y=y, sr=sr)
     # S_db = librosa.power_to_db(S, ref=np.max)
 
+    MAX_LEN = SR * 3  # 3 seconds
+
+    if len(y) > MAX_LEN:
+        y = y[:MAX_LEN]
+    else:
+        y = np.pad(y, (0, MAX_LEN - len(y)))
     stft = librosa.stft(y, n_fft=N_FFT,
                             hop_length=HOP_LENGTH
                             )
-    stft_db = librosa.amplitude_to_db(np.abs(stft), ref=np.max)
+    stft_db = librosa.amplitude_to_db(np.abs(stft), ref=1.0)
+    stft_db = (stft_db + 80) / 80  # normalize to [0,1]
 
-    plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
+    img = Image.fromarray((stft_db * 255).astype(np.uint8))
+    img = img.resize((300, 300))
+    img.save(out_path)
+    # plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
 
-    # plt.figure(figsize=IMG_SIZE)
-    plt.axis("off")
-    librosa.display.specshow(stft_db, sr=sr)
-    plt.savefig(out_path, bbox_inches="tight", pad_inches=0)
-    plt.close()
+    # # plt.figure(figsize=IMG_SIZE)
+    # plt.axis("off")
+    # librosa.display.specshow(    stft_db,
+    # sr=sr,
+    # hop_length=HOP_LENGTH,
+    # x_axis=None,
+    # y_axis=None,
+    # cmap="gray"
+    # )
+    # plt.clim(-80, 0)
+    # plt.savefig(out_path, bbox_inches="tight", pad_inches=0)
+    # plt.close()
 
 # =========================
 # STEP 5: PROCESS SPLIT

@@ -6,6 +6,7 @@ import librosa.display
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+from PIL import Image
 
 # =========================
 # CONFIG
@@ -95,16 +96,26 @@ def augment(y, sr):
 # STEP 4: SAVE MEL SPECTROGRAM
 # =========================
 def save_mel(y, sr, out_path):
-    S = librosa.feature.melspectrogram(y=y, sr=sr)
-    S_db = librosa.power_to_db(S, ref=np.max)
+    S = librosa.feature.melspectrogram(
+        y=y,
+        sr=sr,
+        n_fft=1024,
+        hop_length=512,
+        n_mels=128
+    )
+    S_db = librosa.power_to_db(S, ref=1.0)
+    S_db = np.clip(S_db, -80, 0)
 
-    plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
+    img = Image.fromarray((S_db * 255).astype(np.uint8))
+    img = img.resize((300, 300))
+    img.save(out_path)
+    # plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
 
-    # plt.figure(figsize=IMG_SIZE)
-    plt.axis("off")
-    librosa.display.specshow(S_db, sr=sr)
-    plt.savefig(out_path, bbox_inches="tight", pad_inches=0)
-    plt.close()
+    # # plt.figure(figsize=IMG_SIZE)
+    # plt.axis("off")
+    # librosa.display.specshow(S_db, sr=sr)
+    # plt.savefig(out_path, bbox_inches="tight", pad_inches=0)
+    # plt.close()
 
 # =========================
 # STEP 5: PROCESS SPLIT
@@ -118,6 +129,13 @@ def process_split(split, split_name, augment_data=False):
         os.makedirs(out_dir, exist_ok=True)
 
         y, sr = librosa.load(wav_path, sr=SR)
+
+        MAX_LEN = SR * 3  # 3 seconds
+
+        if len(y) > MAX_LEN:
+            y = y[:MAX_LEN]
+        else:
+            y = np.pad(y, (0, MAX_LEN - len(y)))
 
         samples = [y]
         if augment_data:
