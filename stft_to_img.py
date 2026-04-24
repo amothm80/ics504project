@@ -77,26 +77,48 @@ def time_stretch(y, rate=1.2):
 # =========================
 # STEP 3: AUGMENTATION (TRAIN ONLY)
 # =========================
-def augment(y, sr):
-    augmented = []
+def augment(y, sr, num_augments=2):
+    augmented = [y]  # always include original
 
-    # original
-    augmented.append(y)
+    # list of augmentation functions
+    aug_funcs = [
+        lambda x: time_stretch(x, rate=random.uniform(0.85, 1.15)),
+        lambda x: pitch_shift(x, sr, n_steps=random.uniform(-2, 2)),
+        lambda x: time_shift(x, shift_max=0.2),
+        lambda x: add_noise(x, noise_factor=random.uniform(0.002, 0.01)),
+    ]
 
-    #time stretch
-    augmented.append(time_stretch(y, rate=0.9))
-    augmented.append(time_stretch(y, rate=1.1))
+    # randomly choose augmentations
+    selected = random.sample(aug_funcs, k=num_augments)
 
-    #pitch shift
-    augmented.append(pitch_shift(y, sr))
-
-    #time shift
-    augmented.append(time_shift(y))
-
-    # noise
-    augmented.append(add_noise(y))
+    for func in selected:
+        try:
+            augmented.append(func(y))
+        except:
+            continue  # skip failed augmentations safely
 
     return augmented
+
+# def augment(y, sr):
+#     augmented = []
+
+#     # original
+#     augmented.append(y)
+
+#     #time stretch
+#     augmented.append(time_stretch(y, rate=0.9))
+#     augmented.append(time_stretch(y, rate=1.1))
+
+#     #pitch shift
+#     augmented.append(pitch_shift(y, sr))
+
+#     #time shift
+#     augmented.append(time_shift(y))
+
+#     # noise
+#     augmented.append(add_noise(y))
+
+#     return augmented
 
 # =========================
 # STEP 4: SAVE MEL SPECTROGRAM
@@ -150,7 +172,9 @@ def process_split(split, split_name, augment_data=False):
 
         samples = [y]
         if augment_data:
-            samples = augment(y, sr)
+            num_aug = random.choice([1, 2])  # randomly 1 or 2 augmentations
+            samples = augment(y, sr, num_augments=num_aug)
+            # samples = augment(y, sr)
 
         base_name = os.path.splitext(os.path.basename(wav_path))[0]
 
