@@ -11,8 +11,8 @@ from PIL import Image
 # =========================
 # CONFIG
 # =========================
-INPUT_DIR = "datasets"          # original wav dataset
-OUTPUT_DIR = "dataset_mel_img" # output folder
+INPUT_DIR = "datasets_ar"          # original wav dataset
+OUTPUT_DIR = "dataset_mel_img_ar" # output folder
 # IMG_SIZE = (3, 3)             # inches (controls resolution)
 SR = 16000
 RANDOM_STATE = 42

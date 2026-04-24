@@ -4,20 +4,26 @@ import numpy as np
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from tqdm import tqdm
 from PIL import Image
+
+from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 
 # =========================
 # CONFIG
 # =========================
-INPUT_DIR = "datasets"          # original wav dataset
-OUTPUT_DIR = "dataset_mel_img" # output folder
+INPUT_DIR = "datasets_ar"          # original wav dataset
+OUTPUT_DIR = "dataset_stft_img_ar" # output folder
 # IMG_SIZE = (3, 3)             # inches (controls resolution)
 SR = 16000
 RANDOM_STATE = 42
 IMG_SIZE = 300
 DPI = 100
+
+N_FFT = 512
+HOP_LENGTH = 512
+
+
 
 # =========================
 # STEP 1: LOAD FILES
@@ -93,29 +99,61 @@ def augment(y, sr, num_augments=2):
 
     return augmented
 
+# def augment(y, sr):
+#     augmented = []
+
+#     # original
+#     augmented.append(y)
+
+#     #time stretch
+#     augmented.append(time_stretch(y, rate=0.9))
+#     augmented.append(time_stretch(y, rate=1.1))
+
+#     #pitch shift
+#     augmented.append(pitch_shift(y, sr))
+
+#     #time shift
+#     augmented.append(time_shift(y))
+
+#     # noise
+#     augmented.append(add_noise(y))
+
+#     return augmented
+
 # =========================
 # STEP 4: SAVE MEL SPECTROGRAM
 # =========================
-def save_mel(y, sr, out_path):
-    S = librosa.feature.melspectrogram(
-        y=y,
-        sr=sr,
-        n_fft=1024,
-        hop_length=512,
-        n_mels=128
-    )
-    S_db = librosa.power_to_db(S, ref=np.max)
-    S_db = np.clip(S_db, -80, 0)
-    S_db = (S_db + 80) / 80
+def save_stft(y, sr, out_path):
+    # S = librosa.feature.melspectrogram(y=y, sr=sr)
+    # S_db = librosa.power_to_db(S, ref=np.max)
 
-    img = Image.fromarray((S_db * 255).astype(np.uint8))
+    MAX_LEN = SR * 3  # 3 seconds
+
+    if len(y) > MAX_LEN:
+        y = y[:MAX_LEN]
+    else:
+        y = np.pad(y, (0, MAX_LEN - len(y)))
+    stft = librosa.stft(y, n_fft=N_FFT,
+                            hop_length=HOP_LENGTH
+                            )
+    stft_db = librosa.amplitude_to_db(np.abs(stft), ref=1.0)
+    stft_db = (stft_db + 80) / 80  # normalize to [0,1]
+
+    img = Image.fromarray((stft_db * 255).astype(np.uint8))
     img = img.resize((300, 300))
     img.save(out_path)
     # plt.figure(figsize=(IMG_SIZE / DPI, IMG_SIZE / DPI), dpi=DPI)
 
     # # plt.figure(figsize=IMG_SIZE)
     # plt.axis("off")
-    # librosa.display.specshow(S_db, sr=sr)
+    # librosa.display.specshow(    stft_db,
+    # sr=sr,
+    # hop_length=HOP_LENGTH,
+    # x_axis=None,
+    # y_axis=None,
+    # cmap="gray"
+    # )
+    # plt.clim(-80, 0)
     # plt.savefig(out_path, bbox_inches="tight", pad_inches=0)
     # plt.close()
 
@@ -132,23 +170,17 @@ def process_split(split, split_name, augment_data=False):
 
         y, sr = librosa.load(wav_path, sr=SR)
 
-        MAX_LEN = SR * 3  # 3 seconds
-
-        if len(y) > MAX_LEN:
-            y = y[:MAX_LEN]
-        else:
-            y = np.pad(y, (0, MAX_LEN - len(y)))
-
         samples = [y]
         if augment_data:
             num_aug = random.choice([1, 2])  # randomly 1 or 2 augmentations
             samples = augment(y, sr, num_augments=num_aug)
+            # samples = augment(y, sr)
 
         base_name = os.path.splitext(os.path.basename(wav_path))[0]
 
         for i, sample in enumerate(samples):
             out_path = os.path.join(out_dir, f"{base_name}_{i}.png")
-            save_mel(sample, sr, out_path)
+            save_stft(sample, sr, out_path)
 
 # =========================
 # MAIN PIPELINE
